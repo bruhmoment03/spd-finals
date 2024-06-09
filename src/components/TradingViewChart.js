@@ -3,7 +3,6 @@ import { createChart, ColorType } from 'lightweight-charts';
 import { DropdownButton, Dropdown } from 'react-bootstrap';
 
 const intervals = {
-  '1s': '1 Second',
   '1m': '1 Minute',
   '5m': '5 Minutes',
   '15m': '15 Minutes',
@@ -83,7 +82,7 @@ const TradingViewChart = ({ symbol }) => {
   useEffect(() => {
     if (chartRef.current && candleSeriesRef.current) {
       fetchData(symbol, interval);
-      const intervalId = setInterval(() => fetchData(symbol, interval), 5000); // 每5秒更新一次价格数据
+      const intervalId = setInterval(() => fetchData(symbol, interval), 1000); // 每5秒更新一次价格数据
       return () => clearInterval(intervalId);
     }
   }, [symbol, interval]);

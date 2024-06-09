@@ -4,9 +4,28 @@ body {
   font-family: 'Roboto', sans-serif;
 }
 
+.navbar {
+  width: 100%;
+  padding: 1rem 3rem;
+  background-color: #1b1c22;
+  border-bottom: 1px solid #444444;
+}
+
+.navbar-brand, .nav-link {
+  color: #ffffff;
+  font-size: 1.25rem;
+}
+
+.nav-link {
+  margin-right: 1rem;
+}
+
+.navbar-nav {
+  align-items: center;
+}
+
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
+  min-width: 1200px;
   padding: 20px;
 }
 
@@ -69,17 +88,6 @@ body {
 
 .toggle-btn-group {
   width: 100%;
-}
-
-.toggle-btn-group .btn {
-  width: 50%;
-  background-color: #2a2d35;
-  border: 1px solid #444444;
-}
-
-.toggle-btn-group .btn.active {
-  background-color: #00b894;
-  border-color: #00b894;
 }
 
 .form-label {
