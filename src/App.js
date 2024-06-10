@@ -37,24 +37,30 @@ function App() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successDetails, setSuccessDetails] = useState({});
   const [orders, setOrders] = useState([]);
-  const [currentPrice, setCurrentPrice] = useState(0);
+  const [currentPrices, setCurrentPrices] = useState({});
   const [coinIcons, setCoinIcons] = useState({});
 
   useEffect(() => {
-    const fetchCurrentPrice = async () => {
+    const fetchPrices = async () => {
       try {
-        const data = await getPrice(selectedSymbol);
-        setCurrentPrice(parseFloat(data.price));
+        const symbols = Object.values(SYMBOLS).map(s => s.symbol);
+        const requests = symbols.map(symbol => getPrice(symbol));
+        const responses = await Promise.all(requests);
+        const prices = {};
+        responses.forEach((response, index) => {
+          prices[symbols[index]] = parseFloat(response.price);
+        });
+        setCurrentPrices(prices);
       } catch (error) {
-        console.error('Failed to fetch current price:', error);
+        console.error('Failed to fetch prices:', error);
       }
     };
 
-    fetchCurrentPrice();
-    const intervalId = setInterval(fetchCurrentPrice, 5000); // 每5秒获取一次最新价格
+    fetchPrices();
+    const intervalId = setInterval(fetchPrices, 5000); // 每5秒获取一次最新价格
 
     return () => clearInterval(intervalId);
-  }, [selectedSymbol]);
+  }, []);
 
   useEffect(() => {
     const fetchCoinIcons = async () => {
@@ -103,12 +109,12 @@ function App() {
       const data = await getPrice(selectedSymbol);
       const currentPrice = parseFloat(data.price);
       const price = orderType === 'market' ? currentPrice : parseFloat(buyPrice);
-      const amount = orderType === 'market' ? parseFloat(buyTotal) / price : parseFloat(buyAmount);
+      const amount = orderType === 'market' ? parseFloat(buyTotal) / currentPrice : parseFloat(buyAmount);
       const total = orderType === 'market' ? parseFloat(buyTotal) : parseFloat(buyTotal);
 
-      // 检查限价订单价格是否小于当前价格
+      // 檢查限價訂單價格是否小於當前價格
       if (orderType === 'limit' && price < currentPrice) {
-        alert('Limit buy price must be greater than or equal to the current price');
+        alert('限價購買價格必須大於或等於當前價格');
         return;
       }
 
@@ -134,10 +140,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('Insufficient balance or invalid amount');
+        alert('餘額不足或金額無效');
       }
     } catch (error) {
-      console.error('Failed to execute buy order:', error);
+      console.error('購買訂單執行失敗:', error);
     }
   };
 
@@ -146,12 +152,12 @@ function App() {
       const data = await getPrice(selectedSymbol);
       const currentPrice = parseFloat(data.price);
       const price = orderType === 'market' ? currentPrice : parseFloat(sellPrice);
-      const amount = parseFloat(sellAmount);
-      const total = orderType === 'market' ? amount * price : parseFloat(sellTotal);
+      const amount = orderType === 'market' ? parseFloat(sellTotal) / currentPrice : parseFloat(sellAmount);
+      const total = orderType === 'market' ? amount * currentPrice : parseFloat(sellTotal);
 
-      // 检查限价订单价格是否大于当前价格
+      // 檢查限價訂單價格是否大於當前價格
       if (orderType === 'limit' && price > currentPrice) {
-        alert('Limit sell price must be less than or equal to the current price');
+        alert('限價賣出價格必須小於或等於當前價格');
         return;
       }
 
@@ -177,10 +183,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('Insufficient holdings or invalid amount');
+        alert('持倉不足或金額無效');
       }
     } catch (error) {
-      console.error('Failed to execute sell order:', error);
+      console.error('賣出訂單執行失敗:', error);
     }
   };
 
@@ -191,21 +197,21 @@ function App() {
   const handleOrderTypeChange = async (newOrderType) => {
     setOrderType(newOrderType);
 
-    // 获取当前价格并设置为 Limit 价格的默认值
+    // 獲取當前價格並設置為 Limit 價格的默認值
     if (newOrderType === 'limit') {
       try {
         const data = await getPrice(selectedSymbol);
         setBuyPrice(data.price);
         setSellPrice(data.price);
       } catch (error) {
-        console.error('Failed to fetch current price:', error);
+        console.error('獲取當前價格失敗:', error);
       }
     } else {
       setBuyPrice('');
       setSellPrice('');
     }
 
-    // 清空输入字段
+    // 清空輸入字段
     setBuyAmount('');
     setBuyTotal('');
     setSellAmount('');
@@ -255,7 +261,7 @@ function App() {
         <Form.Control
           type="number"
           value={isBuy ? buyPrice : sellPrice}
-          placeholder={currentPrice.toFixed(2)}
+          placeholder={currentPrices[selectedSymbol]?.toFixed(2)}
           onChange={(e) => isBuy ? setBuyPrice(e.target.value) : setSellPrice(e.target.value)}
         />
       </Form.Group>
@@ -301,19 +307,36 @@ function App() {
     </>
   );
 
+  const renderHoldings = () => (
+    Object.keys(holdings).map((symbol) => {
+      if (symbol !== null) {
+        const holdingAmount = formatNumber(holdings[symbol]);
+        const holdingPrice = currentPrices[symbol] || 0;
+        const holdingValue = (holdings[symbol] * holdingPrice).toFixed(2);
+        return (
+          <div key={symbol} className="holding-details">
+            <span className="holding-symbol">{symbol}</span>
+            <span>Amount: {holdingAmount}</span>
+            <span>Value: ${holdingValue}</span>
+          </div>
+        );
+      }
+      return null;
+    })
+  );
+
+  const calculateHoldingsValue = () => {
+    return Object.keys(holdings).reduce((total, symbol) => {
+      const holdingPrice = currentPrices[symbol] || 0;
+      const holdingValue = holdings[symbol] * holdingPrice;
+      return total + holdingValue;
+    }, 0).toFixed(2);
+  };
+
   return (
     <>
       <Navbar bg="dark" variant="dark" expand="lg">
-        <Navbar.Brand href="/">
-            <img
-              alt=""
-              src="/ws_logo_neon.png"
-              width="30"
-              height="30"
-              className="d-inline-block align-top"
-            />{' '}
-            Crypto Trading Simulator
-        </Navbar.Brand>
+        <Navbar.Brand href="/">Crypto Trading Simulator</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ml-auto">
@@ -329,14 +352,8 @@ function App() {
           </Nav>
         </Navbar.Collapse>
       </Navbar>
-      <div className="container">
-
+      <div className="container gateio-theme">
         <h1 className="my-4">Crypto Trading Simulator</h1>
-
-        <div className="mt-4">
-          <h2>Balance: ${balance.toFixed(2)} USDT</h2>
-        </div>
-
         <TradingViewChart symbol={selectedSymbol} />
         <DropdownButton
           id="dropdown-symbol-button"
@@ -399,19 +416,17 @@ function App() {
             </div>
           </div>
         </div>
+        <div className="mt-4">
+          <h4>Balance: ${balance.toFixed(2)} USDT</h4>
+          <h4>Holdings Value: ${calculateHoldingsValue()} USDT</h4>
+        </div>
 
-        <Modal show={showModal} onHide={() => setShowModal(false)}>
+        <Modal centered show={showModal} onHide={() => setShowModal(false)}>
           <Modal.Header closeButton>
             <Modal.Title>Holdings</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
-            <ul className="list-group">
-              {Object.keys(holdings).map((symbol) => (
-                <li key={symbol} className="list-group-item">
-                  {symbol}: {formatNumber(holdings[symbol])}
-                </li>
-              ))}
-            </ul>
+          <Modal.Body className='m-4'>
+            {renderHoldings()}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowModal(false)}>

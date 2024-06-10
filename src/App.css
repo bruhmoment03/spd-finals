@@ -6,9 +6,8 @@ body {
 
 .navbar {
   width: 100%;
-  padding: 1rem 3rem;
+  padding: 1rem 2rem;
   background-color: #1b1c22;
-  border-bottom: 1px solid #444444;
 }
 
 .navbar-brand, .nav-link {
@@ -25,7 +24,8 @@ body {
 }
 
 .container {
-  min-width: 1200px;
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 20px;
 }
 
@@ -90,6 +90,17 @@ body {
   width: 100%;
 }
 
+.toggle-btn-group .btn {
+  width: 50%;
+  background-color: #2a2d35;
+  border: 1px solid #444444;
+}
+
+.toggle-btn-group .btn.active {
+  background-color: #00b894;
+  border-color: #00b894;
+}
+
 .form-label {
   color: #6c757d;
 }
@@ -127,4 +138,19 @@ h1, h4 {
 
 .modal-footer {
   border-top: 1px solid #444444;
+}
+
+.holding-symbol {
+  font-size: 1.25rem;
+  color: #e0e0e0;
+}
+
+.holding-details {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.holding-details span {
+  color: #b0b0b0;
 }
