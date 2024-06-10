@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
+import brandlogo from './btc.webp'
 import TradingViewChart from './components/TradingViewChart';
 import { Modal, Button, Form, DropdownButton, Dropdown, ButtonGroup, Navbar, Nav } from 'react-bootstrap';
-import axios from 'axios';
 import { getPrice } from './api/binance';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLinkedin, faGithub, faDiscord } from '@fortawesome/free-brands-svg-icons';
@@ -25,14 +26,8 @@ function App() {
   const [sellPrice, setSellPrice] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [sellTotal, setSellTotal] = useState('');
-  const [balance, setBalance] = useState(10000); // 模擬初始金額
-  const [holdings, setHoldings] = useState({
-    BTCUSDT: 0,
-    SOLUSDT: 0,
-    ETHUSDT: 0,
-    BNBUSDT: 0,
-    FTMUSDT: 0
-  });
+  const [balance, setBalance] = useState(100000); // 初始價格，其實沒用
+  const [holdings, setHoldings] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successDetails, setSuccessDetails] = useState({});
@@ -57,7 +52,7 @@ function App() {
     };
 
     fetchPrices();
-    const intervalId = setInterval(fetchPrices, 5000); // 每5秒获取一次最新价格
+    const intervalId = setInterval(fetchPrices, 5000); // 每5秒取得一次最新價格
 
     return () => clearInterval(intervalId);
   }, []);
@@ -85,6 +80,11 @@ function App() {
   }, []);
 
   useEffect(() => {
+    fetchHoldings();
+    fetchBalance();
+  }, []);
+
+  useEffect(() => {
     if (buyPrice && buyAmount) {
       setBuyTotal((buyPrice * buyAmount).toFixed(2));
     } else if (buyTotal && buyPrice) {
@@ -104,6 +104,46 @@ function App() {
     return parseFloat(number).toFixed(decimals);
   };
 
+  const fetchHoldings = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/holdings');
+      const holdingsData = response.data.reduce((acc, item) => {
+        acc[item.symbol] = parseFloat(item.amount);
+        return acc;
+      }, {});
+      setHoldings(holdingsData);
+    } catch (error) {
+      console.error('Error fetching holdings:', error);
+    }
+  };
+
+  const fetchBalance = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/balance');
+      setBalance(parseFloat(response.data.amount));  // 確保 balance 是數字
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    }
+  };
+
+  const updateHoldings = async (symbol, amount, value) => {
+    try {
+      await axios.post('http://localhost:5000/api/holdings', { symbol, amount, value });
+      fetchHoldings();
+    } catch (error) {
+      console.error('Error updating holdings:', error);
+    }
+  };
+
+  const updateBalance = async (amount) => {
+    try {
+      await axios.post('http://localhost:5000/api/balance', { amount });
+      setBalance(amount);  // 直接更新 balance 狀態
+    } catch (error) {
+      console.error('Error updating balance:', error);
+    }
+  };
+
   const handleBuy = async () => {
     try {
       const data = await getPrice(selectedSymbol);
@@ -112,19 +152,22 @@ function App() {
       const amount = orderType === 'market' ? parseFloat(buyTotal) / currentPrice : parseFloat(buyAmount);
       const total = orderType === 'market' ? parseFloat(buyTotal) : parseFloat(buyTotal);
 
-      // 檢查限價訂單價格是否小於當前價格
+      // 掛單判斷，檢查掛單價格是否小於當前價格
       if (orderType === 'limit' && price < currentPrice) {
-        alert('限價購買價格必須大於或等於當前價格');
+        alert('限价购买价格必须大于或等于当前价格');
         return;
       }
 
       if (total <= balance && amount > 0) {
-        setBalance(balance - total);
+        const newBalance = balance - total;
+        setBalance(newBalance);
+        updateBalance(newBalance);
         const newHoldings = {
           ...holdings,
           [selectedSymbol]: (holdings[selectedSymbol] || 0) + amount
         };
         setHoldings(newHoldings);
+        updateHoldings(selectedSymbol, newHoldings[selectedSymbol], total);
         setOrders([...orders, { type: 'buy', symbol: selectedSymbol, price, amount, total }]);
         setBuyPrice('');
         setBuyAmount('');
@@ -140,10 +183,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('餘額不足或金額無效');
+        alert('余额不足或金额无效');
       }
     } catch (error) {
-      console.error('購買訂單執行失敗:', error);
+      console.error('购买订单执行失败:', error);
     }
   };
 
@@ -155,19 +198,22 @@ function App() {
       const amount = orderType === 'market' ? parseFloat(sellTotal) / currentPrice : parseFloat(sellAmount);
       const total = orderType === 'market' ? amount * currentPrice : parseFloat(sellTotal);
 
-      // 檢查限價訂單價格是否大於當前價格
+      // 掛單判斷，檢查掛單價格是否大於當前價格
       if (orderType === 'limit' && price > currentPrice) {
-        alert('限價賣出價格必須小於或等於當前價格');
+        alert('限价卖出价格必须小于或等于当前价格');
         return;
       }
 
       if (amount <= (holdings[selectedSymbol] || 0) && amount > 0) {
-        setBalance(balance + total);
+        const newBalance = balance + total;
+        setBalance(newBalance);
+        updateBalance(newBalance);
         const newHoldings = {
           ...holdings,
           [selectedSymbol]: (holdings[selectedSymbol] || 0) - amount
         };
         setHoldings(newHoldings);
+        updateHoldings(selectedSymbol, newHoldings[selectedSymbol], total);
         setOrders([...orders, { type: 'sell', symbol: selectedSymbol, price, amount, total }]);
         setSellPrice('');
         setSellAmount('');
@@ -183,10 +229,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('持倉不足或金額無效');
+        alert('持仓不足或金额无效');
       }
     } catch (error) {
-      console.error('賣出訂單執行失敗:', error);
+      console.error('卖出订单执行失败:', error);
     }
   };
 
@@ -197,14 +243,14 @@ function App() {
   const handleOrderTypeChange = async (newOrderType) => {
     setOrderType(newOrderType);
 
-    // 獲取當前價格並設置為 Limit 價格的默認值
+    // 取得當前價格並設定為 Limit 價格的預設值
     if (newOrderType === 'limit') {
       try {
         const data = await getPrice(selectedSymbol);
         setBuyPrice(data.price);
         setSellPrice(data.price);
       } catch (error) {
-        console.error('獲取當前價格失敗:', error);
+        console.error('获取当前价格失败:', error);
       }
     } else {
       setBuyPrice('');
@@ -336,7 +382,11 @@ function App() {
   return (
     <>
       <Navbar bg="dark" variant="dark" expand="lg">
-        <Navbar.Brand href="/">Crypto Trading Simulator</Navbar.Brand>
+        <Navbar.Brand href="/">
+          
+          <img src = {brandlogo} width={40} className='mx-3'></img>
+          
+          Crypto Trading Simulator</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ml-auto">
@@ -421,11 +471,11 @@ function App() {
           <h4>Holdings Value: ${calculateHoldingsValue()} USDT</h4>
         </div>
 
-        <Modal centered show={showModal} onHide={() => setShowModal(false)}>
+        <Modal show={showModal} onHide={() => setShowModal(false)}>
           <Modal.Header closeButton>
             <Modal.Title>Holdings</Modal.Title>
           </Modal.Header>
-          <Modal.Body className='m-4'>
+          <Modal.Body>
             {renderHoldings()}
           </Modal.Body>
           <Modal.Footer>

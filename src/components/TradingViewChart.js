@@ -60,7 +60,7 @@ const TradingViewChart = ({ symbol }) => {
 
   const fetchData = async (symbol, interval) => {
     try {
-      const limit = 5000; // 增加请求的数据点数
+      const limit = 5000; // 更多數據哈
       const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
       if (!response.ok) {
         throw new Error(`Error fetching data: ${response.statusText}`);
@@ -82,7 +82,7 @@ const TradingViewChart = ({ symbol }) => {
   useEffect(() => {
     if (chartRef.current && candleSeriesRef.current) {
       fetchData(symbol, interval);
-      const intervalId = setInterval(() => fetchData(symbol, interval), 1000); // 每5秒更新一次价格数据
+      const intervalId = setInterval(() => fetchData(symbol, interval), 1000); // 一樣更新資料
       return () => clearInterval(intervalId);
     }
   }, [symbol, interval]);
