@@ -1,5 +1,5 @@
 <h1 align="center">
-spd-finals - Crypto-Trading-Simulator
+spd-finals - Crypto-Trading-Simulator <br>
 <img src="https://img.shields.io/badge/Made_by-Speedo-yellow" />
 <img src="https://img.shields.io/badge/-ReactJs-61DAFB?logo=react&logoColor=white" />
 <img src="https://img.shields.io/badge/platform-Windows-blue" />
