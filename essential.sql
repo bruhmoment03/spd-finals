@@ -16,4 +16,5 @@ CREATE TABLE balance (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+/* adding a default value or we don't have money to make more money! */
 INSERT INTO balance (id, amount) VALUES (1, 10000) ON DUPLICATE KEY UPDATE amount = amount;

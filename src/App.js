@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, DropdownButton, Dropdown, ButtonGroup, Navbar, Nav } from 'react-bootstrap';
 import axios from 'axios';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import brandlogo from './btc.webp'
+
 import TradingViewChart from './components/TradingViewChart';
-import { Modal, Button, Form, DropdownButton, Dropdown, ButtonGroup, Navbar, Nav } from 'react-bootstrap';
 import { getPrice } from './api/binance';
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLinkedin, faGithub, faDiscord } from '@fortawesome/free-brands-svg-icons';
+import brandlogo from './btc.webp'
 
 const SYMBOLS = {
   BTC: { symbol: 'BTCUSDT', name: 'Bitcoin', id: 'bitcoin' },
@@ -38,8 +41,10 @@ function App() {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
+        // map成 ['BTCUSDT', 'SOLUSDT', 'ETHUSDT', 'BNBUSDT', 'FTMUSDT']
         const symbols = Object.values(SYMBOLS).map(s => s.symbol);
         const requests = symbols.map(symbol => getPrice(symbol));
+        // 處理非同步操作，在未來某個時間點才會完成（或失敗）的操作及其結果值。
         const responses = await Promise.all(requests);
         const prices = {};
         responses.forEach((response, index) => {
@@ -79,6 +84,7 @@ function App() {
     fetchCoinIcons();
   }, []);
 
+  // 無時無刻更新數據
   useEffect(() => {
     fetchHoldings();
     fetchBalance();
@@ -107,10 +113,21 @@ function App() {
   const fetchHoldings = async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/holdings');
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
       const holdingsData = response.data.reduce((acc, item) => {
         acc[item.symbol] = parseFloat(item.amount);
         return acc;
       }, {});
+
+      // Holding Data Example after reducing:
+/*       {
+        "SOLUSDT": 12.28727653,
+        "ETHUSDT": 1.2735095,
+        "BNBUSDT": 8.65502451,
+        "BTCUSDT": 0.00001257,
+        "FTMUSDT": 1798.91860295
+      } */
+
       setHoldings(holdingsData);
     } catch (error) {
       console.error('Error fetching holdings:', error);
@@ -154,7 +171,7 @@ function App() {
 
       // 掛單判斷，檢查掛單價格是否小於當前價格
       if (orderType === 'limit' && price < currentPrice) {
-        alert('限价购买价格必须大于或等于当前价格');
+        alert('限價購買價格必須大於或等於當前價格');
         return;
       }
 
@@ -183,10 +200,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('余额不足或金额无效');
+        alert('餘額不足或金額無效');
       }
     } catch (error) {
-      console.error('购买订单执行失败:', error);
+      console.error('購買訂單執行失敗:', error);
     }
   };
 
@@ -200,7 +217,7 @@ function App() {
 
       // 掛單判斷，檢查掛單價格是否大於當前價格
       if (orderType === 'limit' && price > currentPrice) {
-        alert('限价卖出价格必须小于或等于当前价格');
+        alert('限價賣出價格必須小於或等於當前價格');
         return;
       }
 
@@ -229,10 +246,10 @@ function App() {
         });
         setShowSuccessModal(true);
       } else {
-        alert('持仓不足或金额无效');
+        alert('持倉不足或金額無效');
       }
     } catch (error) {
-      console.error('卖出订单执行失败:', error);
+      console.error('賣出訂單執行失敗:', error);
     }
   };
 
@@ -250,7 +267,7 @@ function App() {
         setBuyPrice(data.price);
         setSellPrice(data.price);
       } catch (error) {
-        console.error('获取当前价格失败:', error);
+        console.error('取得當前價格失敗:', error);
       }
     } else {
       setBuyPrice('');
