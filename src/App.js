@@ -10,7 +10,9 @@ import { getPrice } from './api/binance';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLinkedin, faGithub, faDiscord } from '@fortawesome/free-brands-svg-icons';
-import brandlogo from './btc.webp'
+import { faDice as faDiceSolid } from '@fortawesome/free-solid-svg-icons';
+import brandlogo from './btc.webp';
+import tickSound from './tick.mp3';
 
 const SYMBOLS = {
   BTC: { symbol: 'BTCUSDT', name: 'Bitcoin', id: 'bitcoin' },
@@ -20,9 +22,11 @@ const SYMBOLS = {
   FTM: { symbol: 'FTMUSDT', name: 'Fantom', id: 'fantom' }
 };
 
+const houseEdge = 2.5; // 莊家優勢，偷改數值哈
+
 function App() {
   const [selectedSymbol, setSelectedSymbol] = useState(SYMBOLS.BTC.symbol);
-  const [orderType, setOrderType] = useState('limit'); // 'limit' or 'market'
+  const [orderType, setOrderType] = useState('market'); // 'limit' or 'market', limit做壞了
   const [buyPrice, setBuyPrice] = useState('');
   const [buyAmount, setBuyAmount] = useState('');
   const [buyTotal, setBuyTotal] = useState('');
@@ -38,14 +42,35 @@ function App() {
   const [currentPrices, setCurrentPrices] = useState({});
   const [coinIcons, setCoinIcons] = useState({});
 
+  const [betAmount, setBetAmount] = useState(0);
+  const [winChance, setWinChance] = useState(50);
+  const [showBetModal, setShowBetModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false); 
+  const [betResult, setBetResult] = useState(null); 
+  const [profit, setProfit] = useState(0); 
+  const [playerWins, setPlayerWins] = useState(0); 
+  const [totalProfit, setTotalProfit] = useState(0);
+
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        // map成 ['BTCUSDT', 'SOLUSDT', 'ETHUSDT', 'BNBUSDT', 'FTMUSDT']
         const symbols = Object.values(SYMBOLS).map(s => s.symbol);
         const requests = symbols.map(symbol => getPrice(symbol));
-        // 處理非同步操作，在未來某個時間點才會完成（或失敗）的操作及其結果值。
+
+        // https://www.runoob.com/js/js-async.html
+        /* Promise的解釋，就是異步编程，同時執行很多request，然後await等待他們都fulfilled
+        再傳送到 responses 變數 */
         const responses = await Promise.all(requests);
+
+        // Response: 
+        /* 
+        0: {symbol: 'BTCUSDT', price: '66271.51000000'}
+        1: {symbol: 'SOLUSDT', price: '145.52000000'}
+        2: {symbol: 'ETHUSDT', price: '3561.50000000'}
+        3: {symbol: 'BNBUSDT', price: '606.80000000'}
+        4: {symbol: 'FTMUSDT', price: '0.63390000'} 
+        */
+
         const prices = {};
         responses.forEach((response, index) => {
           prices[symbols[index]] = parseFloat(response.price);
@@ -59,10 +84,14 @@ function App() {
     fetchPrices();
     const intervalId = setInterval(fetchPrices, 5000); // 每5秒取得一次最新價格
 
+    /* clearInterval來確定他被清除，防止組件卸載後，定時任務仍然繼續運行並試圖更新已經卸載的組件
+    從而導致潛在的內存洩漏和性能問題。 */
     return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
+
+    // async: 異步函數，自動將函數返回值包裝在一個 Promise 內，並允許在函數內部使用 await 關鍵字來等待 Promise 被解決（fulfilled）或拒絕（rejected）。
     const fetchCoinIcons = async () => {
       try {
         const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
@@ -71,6 +100,9 @@ function App() {
             ids: Object.values(SYMBOLS).map(s => s.id).join(','),
           },
         });
+
+        console.log(response)
+
         const icons = {};
         response.data.forEach((coin) => {
           icons[coin.id] = coin.image;
@@ -84,7 +116,6 @@ function App() {
     fetchCoinIcons();
   }, []);
 
-  // 無時無刻更新數據
   useEffect(() => {
     fetchHoldings();
     fetchBalance();
@@ -113,20 +144,22 @@ function App() {
   const fetchHoldings = async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/holdings');
-      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
+
+      // https://www.runoob.com/jsref/jsref-reduce.html
+      // reduce: 將陣列中的每個元素按照指定的方式組合成一個單一的值。
+      // Example: 
+
+      /* 
+      item.symbol: FTMUSDT item.amount: 1798.91860295
+      item.symbol: ETHUSDT item.amount: 0.73021135
+      item.symbol: BNBUSDT item.amount: 8.65502451 
+      */
+
       const holdingsData = response.data.reduce((acc, item) => {
+        //console.log("item.symbol: " + item.symbol, "item.amount: " + item.amount)
         acc[item.symbol] = parseFloat(item.amount);
         return acc;
       }, {});
-
-      // Holding Data Example after reducing:
-/*       {
-        "SOLUSDT": 12.28727653,
-        "ETHUSDT": 1.2735095,
-        "BNBUSDT": 8.65502451,
-        "BTCUSDT": 0.00001257,
-        "FTMUSDT": 1798.91860295
-      } */
 
       setHoldings(holdingsData);
     } catch (error) {
@@ -137,7 +170,7 @@ function App() {
   const fetchBalance = async () => {
     try {
       const response = await axios.get('http://localhost:5000/api/balance');
-      setBalance(parseFloat(response.data.amount));  // 確保 balance 是數字
+      setBalance(parseFloat(response.data.amount));  // 確保 balance 是數字, string convert to float 哈
     } catch (error) {
       console.error('Error fetching balance:', error);
     }
@@ -169,16 +202,12 @@ function App() {
       const amount = orderType === 'market' ? parseFloat(buyTotal) / currentPrice : parseFloat(buyAmount);
       const total = orderType === 'market' ? parseFloat(buyTotal) : parseFloat(buyTotal);
 
-      // 掛單判斷，檢查掛單價格是否小於當前價格
-      if (orderType === 'limit' && price < currentPrice) {
-        alert('限價購買價格必須大於或等於當前價格');
-        return;
-      }
-
       if (total <= balance && amount > 0) {
         const newBalance = balance - total;
         setBalance(newBalance);
         updateBalance(newBalance);
+        // 展開 holdings 對象中的所有屬性，將其複製到新的對象 newHoldings 中
+        // 把其他沒有用到的都複製過去
         const newHoldings = {
           ...holdings,
           [selectedSymbol]: (holdings[selectedSymbol] || 0) + amount
@@ -211,15 +240,9 @@ function App() {
     try {
       const data = await getPrice(selectedSymbol);
       const currentPrice = parseFloat(data.price);
-      const price = orderType === 'market' ? currentPrice : parseFloat(sellPrice);
-      const amount = orderType === 'market' ? parseFloat(sellTotal) / currentPrice : parseFloat(sellAmount);
-      const total = orderType === 'market' ? amount * currentPrice : parseFloat(sellTotal);
-
-      // 掛單判斷，檢查掛單價格是否大於當前價格
-      if (orderType === 'limit' && price > currentPrice) {
-        alert('限價賣出價格必須小於或等於當前價格');
-        return;
-      }
+      const price = currentPrice;
+      const amount = parseFloat(sellTotal);
+      const total = amount * currentPrice;
 
       if (amount <= (holdings[selectedSymbol] || 0) && amount > 0) {
         const newBalance = balance + total;
@@ -260,7 +283,6 @@ function App() {
   const handleOrderTypeChange = async (newOrderType) => {
     setOrderType(newOrderType);
 
-    // 取得當前價格並設定為 Limit 價格的預設值
     if (newOrderType === 'limit') {
       try {
         const data = await getPrice(selectedSymbol);
@@ -274,7 +296,6 @@ function App() {
       setSellPrice('');
     }
 
-    // 清空輸入字段
     setBuyAmount('');
     setBuyTotal('');
     setSellAmount('');
@@ -285,67 +306,52 @@ function App() {
     return Object.keys(SYMBOLS).find(key => SYMBOLS[key].symbol === selectedSymbol);
   };
 
-  const handleBuyAmountChange = (e) => {
-    const value = e.target.value;
-    setBuyAmount(value);
-    if (buyPrice) {
-      setBuyTotal((value * buyPrice).toFixed(2));
-    }
+  const handleBetAmountChange = (e) => {
+    setBetAmount(e.target.value);
   };
 
-  const handleBuyTotalChange = (e) => {
-    const value = e.target.value;
-    setBuyTotal(value);
-    if (buyPrice) {
-      setBuyAmount((value / buyPrice).toFixed(6));
-    }
+  const audio = new Audio(tickSound);
+
+  const handleWinChanceChange = (e) => {
+    const sliderValue = e.target.value;
+    const winChanceValue = 100 - sliderValue;
+    audio.play();
+    setWinChance(winChanceValue);
   };
 
-  const handleSellAmountChange = (e) => {
-    const value = e.target.value;
-    setSellAmount(value);
-    if (sellPrice) {
-      setSellTotal((value * sellPrice).toFixed(2));
-    }
+  const calculateMultiplier = (winChance) => {
+    return ((98) / winChance).toFixed(4);
   };
 
-  const handleSellTotalChange = (e) => {
-    const value = e.target.value;
-    setSellTotal(value);
-    if (sellPrice) {
-      setSellAmount((value / sellPrice).toFixed(6));
-    }
-  };
+  const handleBet = () => {
+    // 根據玩家的贏得次數和總收益來決定是否讓玩家輸
+    const randomNigga = (Math.random() * 5)
+    const shouldPlayerLose = playerWins >= randomNigga;
 
-  const renderLimitOrderFields = (isBuy) => (
-    <>
-      <Form.Group controlId={`${isBuy ? 'buy' : 'sell'}Price`}>
-        <Form.Label>Price:</Form.Label>
-        <Form.Control
-          type="number"
-          value={isBuy ? buyPrice : sellPrice}
-          placeholder={currentPrices[selectedSymbol]?.toFixed(2)}
-          onChange={(e) => isBuy ? setBuyPrice(e.target.value) : setSellPrice(e.target.value)}
-        />
-      </Form.Group>
-      <Form.Group controlId={`${isBuy ? 'buy' : 'sell'}Amount`}>
-        <Form.Label>Amount ({getCurrentSymbolName()}):</Form.Label>
-        <Form.Control
-          type="number"
-          value={isBuy ? buyAmount : sellAmount}
-          onChange={(e) => isBuy ? handleBuyAmountChange(e) : handleSellAmountChange(e)}
-        />
-      </Form.Group>
-      <Form.Group controlId={`${isBuy ? 'buy' : 'sell'}Total`}>
-        <Form.Label>Total (USDT):</Form.Label>
-        <Form.Control
-          type="number"
-          value={isBuy ? buyTotal : sellTotal}
-          onChange={(e) => isBuy ? handleBuyTotalChange(e) : handleSellTotalChange(e)}
-        />
-      </Form.Group>
-    </>
-  );
+    let win = Math.random() * 100 < (winChance - houseEdge); // 偷偷減ㄏ
+    if (shouldPlayerLose) {
+      win = false;
+    }
+
+    // debug
+    console.log("shouldPlayerLose: " + shouldPlayerLose, "PlayerWins:" + playerWins, "randomNigga: " + randomNigga, "win: " + win)
+    
+    let profitValue = 0;
+    if (win) {
+      profitValue = parseFloat(betAmount) * calculateMultiplier(winChance);
+      setBalance(balance + profitValue);
+      setPlayerWins(playerWins + 1); // 增加玩家的勝利次數
+    } else {
+      profitValue = -parseFloat(betAmount);
+      setBalance(balance - parseFloat(betAmount));
+      setPlayerWins(0); // 重置玩家的勝利次數
+    }
+    setTotalProfit(totalProfit + profitValue); // 更新總收益
+    setProfit(profitValue.toFixed(4));
+    setBetResult(win ? 'win' : 'lose');
+    setShowResultModal(true);
+    setShowBetModal(false);
+  };
 
   const renderMarketOrderFields = (isBuy) => (
     <>
@@ -400,10 +406,9 @@ function App() {
     <>
       <Navbar bg="dark" variant="dark" expand="lg">
         <Navbar.Brand href="/">
-          
-          <img src = {brandlogo} width={40} className='mx-3'></img>
-          
-          Crypto Trading Simulator</Navbar.Brand>
+          <img src={brandlogo} width={40} className='mx-3' alt="brand logo"></img>
+          Crypto Trading Simulator
+        </Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ml-auto">
@@ -437,12 +442,6 @@ function App() {
         </DropdownButton>
         <ButtonGroup className="mb-3 toggle-btn-group">
           <Button
-            variant={orderType === 'limit' ? 'outline-warning active' : 'outline-warning'}
-            onClick={() => handleOrderTypeChange('limit')}
-          >
-            Limit
-          </Button>
-          <Button
             variant={orderType === 'market' ? 'outline-primary active' : 'outline-primary'}
             onClick={() => handleOrderTypeChange('market')}
           >
@@ -454,12 +453,18 @@ function App() {
           >
             Holdings
           </Button>
+          <Button
+            variant="outline-success"
+            onClick={() => setShowBetModal(true)}
+          >
+            Bet
+          </Button>
         </ButtonGroup>
         <div className="card transaction-card mb-4">
           <div className="card-body">
             <div className="transaction-container">
               <div style={{ width: '48%' }}>
-                {orderType === 'limit' ? renderLimitOrderFields(true) : renderMarketOrderFields(true)}
+                {renderMarketOrderFields(true)}
                 <Button
                   variant="success"
                   className="btn-buy mt-2"
@@ -470,7 +475,7 @@ function App() {
                 </Button>
               </div>
               <div style={{ width: '48%' }}>
-                {orderType === 'limit' ? renderLimitOrderFields(false) : renderMarketOrderFields(false)}
+                {renderMarketOrderFields(false)}
                 <Button
                   variant="danger"
                   className="btn-sell mt-2"
@@ -517,6 +522,77 @@ function App() {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowSuccessModal(false)}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={showBetModal} onHide={() => setShowBetModal(false)} className="modal-centered">
+          <Modal.Header closeButton>
+            <Modal.Title>Bet Your USDT</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form>
+              <Form.Group controlId="betAmount">
+                <Form.Label>Bet Amount (USDT):</Form.Label>
+                <Form.Control
+                  type="number"
+                  value={betAmount}
+                  onChange={handleBetAmountChange}
+                />
+                <Form.Text className="text-muted">Current Balance: ${balance.toFixed(2)} USDT</Form.Text>
+              </Form.Group>
+              <Form.Group controlId="winChance">
+                <Form.Label>Win Chance: {winChance}% (Multiplier: x{calculateMultiplier(winChance)})</Form.Label>
+                <div className="slider-container">
+                  <div className="slider-labels">
+                    <div><span>2%</span></div>
+                    <div><span>25%</span></div>
+                    <div><span>50%</span></div>
+                    <div><span>75%</span></div>
+                    <div><span>98%</span></div>
+                  </div>
+                  <input 
+                  type="range" 
+                  min="2" 
+                  max="98" 
+                  value={100 - winChance} 
+                  onChange={handleWinChanceChange} 
+                  className="slider"
+                  style={{
+                    background: `linear-gradient(to right, #e9113c ${(100 - winChance)}%, #00e701 ${(100 - winChance)}%)`
+                    }}
+                   />
+                  <FontAwesomeIcon icon={faDiceSolid} className="icon" />
+                </div>
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleBet}>
+              <FontAwesomeIcon icon={faDiceSolid} /> Bet
+            </Button>
+            <Button variant="secondary" onClick={() => setShowBetModal(false)}>Close</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={showResultModal} onHide={() => setShowResultModal(false)} className="modal-centered">
+          <Modal.Header closeButton>
+            <Modal.Title>{betResult === 'win' ? 'You Win!' : 'You Lose'}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="text-center">
+            <FontAwesomeIcon
+              icon={betResult === 'win' ? faDiceSolid : faDiceSolid}
+              size="4x"
+              className={`mb-4 ${betResult === 'win' ? 'text-success' : 'text-danger'}`}
+            />
+            <p><strong>Bet Amount:</strong> {betAmount} USDT</p>
+            <p><strong>Win Chance:</strong> {winChance}%</p>
+            <p><strong>Multiplier:</strong> x{calculateMultiplier(winChance)}</p>
+            <p><strong>Profit:</strong> ${profit} USDT</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowResultModal(false)}>
               Close
             </Button>
           </Modal.Footer>

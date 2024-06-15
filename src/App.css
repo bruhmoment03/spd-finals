@@ -154,3 +154,72 @@ h1, h4 {
 .holding-details span {
   color: #b0b0b0;
 }
+
+.slider-container {
+  position: relative;
+  width: 100%;
+  padding: 10px 0;
+  margin: 15px 0;
+}
+
+.slider {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 10px;
+  border-radius: 10px;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  background: #4391e7;
+  border-radius: 5px;
+  z-index: 2;
+  cursor: pointer;
+  position: relative;
+}
+
+.slider::-moz-range-thumb {
+  width: 30px;
+  height: 30px;
+  background: #4CAF50;
+  cursor: pointer;
+  border-radius: 50%;
+  z-index: 2;
+  position: relative;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 10px;
+  color: white;
+}
+
+.slider-labels div {
+  position: relative;
+}
+
+.slider-labels div span {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.modal-centered .modal-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-success {
+  color: #28a745 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
