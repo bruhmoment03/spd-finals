@@ -26,7 +26,6 @@ const houseEdge = 2.5; // 莊家優勢，偷改數值哈
 
 function App() {
   const [selectedSymbol, setSelectedSymbol] = useState(SYMBOLS.BTC.symbol);
-  const [orderType, setOrderType] = useState('market'); // 'limit' or 'market', limit做壞了
   const [buyPrice, setBuyPrice] = useState('');
   const [buyAmount, setBuyAmount] = useState('');
   const [buyTotal, setBuyTotal] = useState('');
@@ -198,9 +197,9 @@ function App() {
     try {
       const data = await getPrice(selectedSymbol);
       const currentPrice = parseFloat(data.price);
-      const price = orderType === 'market' ? currentPrice : parseFloat(buyPrice);
-      const amount = orderType === 'market' ? parseFloat(buyTotal) / currentPrice : parseFloat(buyAmount);
-      const total = orderType === 'market' ? parseFloat(buyTotal) : parseFloat(buyTotal);
+      const price = currentPrice;
+      const amount = parseFloat(buyTotal) / currentPrice;
+      const total = parseFloat(buyTotal);
 
       if (total <= balance && amount > 0) {
         const newBalance = balance - total;
@@ -241,7 +240,7 @@ function App() {
       const data = await getPrice(selectedSymbol);
       const currentPrice = parseFloat(data.price);
       const price = currentPrice;
-      const amount = parseFloat(sellTotal);
+      const amount = parseFloat(sellTotal) / currentPrice;
       const total = amount * currentPrice;
 
       if (amount <= (holdings[selectedSymbol] || 0) && amount > 0) {
@@ -280,36 +279,45 @@ function App() {
     setSelectedSymbol(eventKey);
   };
 
-  const handleOrderTypeChange = async (newOrderType) => {
-    setOrderType(newOrderType);
-
-    if (newOrderType === 'limit') {
-      try {
-        const data = await getPrice(selectedSymbol);
-        setBuyPrice(data.price);
-        setSellPrice(data.price);
-      } catch (error) {
-        console.error('取得當前價格失敗:', error);
-      }
-    } else {
-      setBuyPrice('');
-      setSellPrice('');
-    }
-
-    setBuyAmount('');
-    setBuyTotal('');
-    setSellAmount('');
-    setSellTotal('');
-  };
-
   const getCurrentSymbolName = () => {
     return Object.keys(SYMBOLS).find(key => SYMBOLS[key].symbol === selectedSymbol);
+  };
+
+  const handleBuyAmountChange = (e) => {
+    const value = e.target.value;
+    setBuyAmount(value);
+    if (buyPrice) {
+      setBuyTotal((value * buyPrice).toFixed(2));
+    }
+  };
+
+  const handleBuyTotalChange = (e) => {
+    const value = e.target.value;
+    setBuyTotal(value);
+    if (buyPrice) {
+      setBuyAmount((value / buyPrice).toFixed(6));
+    }
+  };
+
+  const handleSellAmountChange = (e) => {
+    const value = e.target.value;
+    setSellAmount(value);
+    if (sellPrice) {
+      setSellTotal((value * sellPrice).toFixed(2));
+    }
+  };
+
+  const handleSellTotalChange = (e) => {
+    const value = e.target.value;
+    setSellTotal(value);
+    if (sellPrice) {
+      setSellAmount((value / sellPrice).toFixed(6));
+    }
   };
 
   const handleBetAmountChange = (e) => {
     setBetAmount(e.target.value);
   };
-
   const audio = new Audio(tickSound);
 
   const handleWinChanceChange = (e) => {
@@ -442,8 +450,7 @@ function App() {
         </DropdownButton>
         <ButtonGroup className="mb-3 toggle-btn-group">
           <Button
-            variant={orderType === 'market' ? 'outline-primary active' : 'outline-primary'}
-            onClick={() => handleOrderTypeChange('market')}
+            variant={'outline-primary active'}
           >
             Market
           </Button>
@@ -540,7 +547,7 @@ function App() {
                   value={betAmount}
                   onChange={handleBetAmountChange}
                 />
-                <Form.Text className="text-muted">Current Balance: ${balance.toFixed(2)} USDT</Form.Text>
+                <Form.Label>Current Balance: ${balance.toFixed(2)} USDT</Form.Label>
               </Form.Group>
               <Form.Group controlId="winChance">
                 <Form.Label>Win Chance: {winChance}% (Multiplier: x{calculateMultiplier(winChance)})</Form.Label>
