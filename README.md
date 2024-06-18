@@ -19,10 +19,10 @@ This platform is built using React and Bootstrap for the frontend, and it utiliz
 
 ## Media
 TradingView's Lightweight Charts and Gate.io's theme.
-![image](https://cdn.discordapp.com/attachments/1231327077672816650/1249941100689363025/image.png?ex=666921dd&is=6667d05d&hm=314b5995381d8df87520778ce84932be92510cd1c60a9ac24da5ac189ce3c07c&)
+![image](https://i.imgur.com/EzbmAKM.png)
 
 a rip off of Binance's Spot-Trading page.
-![image](https://cdn.discordapp.com/attachments/1231327077672816650/1249941101130027061/image.png?ex=666921dd&is=6667d05d&hm=fcc74f9c461df0c174ab7d4782f05fd0fca2ffd70a1c354d52ae381d4a76fd4d&)
+![image](https://i.imgur.com/rvNr4ea.png)
 
 ## Dependencies
 - [TradingView](https://github.com/tradingview/lightweight-charts) - the big chart
