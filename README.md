@@ -24,6 +24,9 @@ TradingView's Lightweight Charts and Gate.io's theme.
 a rip off of Binance's Spot-Trading page.
 ![image](https://i.imgur.com/rvNr4ea.png)
 
+notification appears when the transaction is successful
+![image](https://i.imgur.com/sAdYuCo.png)t
+
 ## Dependencies
 - [TradingView](https://github.com/tradingview/lightweight-charts) - the big chart
 - [Create React App](https://create-react-app.dev/) - how I create this project
